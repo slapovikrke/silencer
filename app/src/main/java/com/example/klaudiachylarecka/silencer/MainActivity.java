@@ -1,19 +1,15 @@
 package com.example.klaudiachylarecka.silencer;
 
-import android.Manifest;
+import android.app.Activity;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.content.res.Resources;
-import android.database.Cursor;
 import android.database.DatabaseUtils;
 import android.database.sqlite.SQLiteDatabase;
-import android.provider.BaseColumns;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v4.app.ActivityCompat;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -41,10 +37,12 @@ public class MainActivity extends AppCompatActivity {
         HoursDbHelper mDbHelper = new HoursDbHelper(getApplicationContext());
         SQLiteDatabase db = mDbHelper.getReadableDatabase();
 
-
+        db.beginTransaction();
         long count = DatabaseUtils.queryNumEntries(db, HoursContract.Hour.TABLE_NAME,
                 "", null
         );
+        db.setTransactionSuccessful();
+        db.endTransaction();
 
         amount.setText(Long.toString(count));
     }

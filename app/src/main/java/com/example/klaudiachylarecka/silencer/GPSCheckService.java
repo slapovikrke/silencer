@@ -15,7 +15,6 @@ import android.util.Log;
 
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Timer;
@@ -29,7 +28,7 @@ public class GPSCheckService extends Service {
     private static final float LOCATION_DISTANCE = 10f;
     private static final double TARGET_LAT = 51.109110;
     private static final double TARGET_LON = 17.060524;
-    private static final float RANGE = 200;
+    private static final float RANGE = 20000;
 
 
     private class LocationListener implements android.location.LocationListener
@@ -126,12 +125,13 @@ public class GPSCheckService extends Service {
                     SQLiteDatabase db = mDbHelper.getReadableDatabase();
 
                     Calendar calendar = Calendar.getInstance();
-                    calendar.set(2019, Calendar.JANUARY, 29);
+                    //calendar.set(2019, Calendar.JANUARY, 29);
                     int currentDay = calendar.get(Calendar.DAY_OF_WEEK);
 
                     if (currentDay >= Calendar.MONDAY && currentDay <= Calendar.FRIDAY) {
                         String query = "SELECT " + HoursContract.Hour.COLUMN_NAME_START_TIME + ", " + HoursContract.Hour.COLUMN_NAME_END_TIME + " FROM " + HoursContract.Hour.TABLE_NAME +
                                 " WHERE " + HoursContract.Hour.COLUMN_NAME_DAY + " = '" + Day.GetDayByNumber(currentDay).Name + "'";
+                        db.beginTransaction();
                         Cursor c = db.rawQuery(query, null);
 
                         while (c.moveToNext())
@@ -148,10 +148,11 @@ public class GPSCheckService extends Service {
                             eTimeCalendar.set(calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DATE), eTimeDate.getHours(), eTimeDate.getMinutes());
 
                             Date currentTime = calendar.getTime();
-                            Log.i(TAG, "Found lesson: Day: " + Day.GetDayByNumber(currentDay).Name + ", StartTime: " + sTime + ", EndTime: " + eTime);
 
                             Date sDebug = sTimeCalendar.getTime();
                             Date eDebug = eTimeCalendar.getTime();
+
+                            Log.i(TAG, "Found lesson: Day: " + Day.GetDayByNumber(currentDay).Name + ", StartTime: " + sDebug + ", EndTime: " + eDebug + ", currentTime: " + currentTime);
 
                             if (currentTime.after(sTimeCalendar.getTime()) && currentTime.before(eTimeCalendar.getTime())) {
                                 Log.i(TAG, "Currently during lesson.");
@@ -166,6 +167,9 @@ public class GPSCheckService extends Service {
                             }
                     }
                     }
+
+                    db.setTransactionSuccessful();
+                    db.endTransaction();
 
                     if (shouldBeSilenced && !isSilenced)
                     {

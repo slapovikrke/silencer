@@ -118,6 +118,7 @@ public class EditCallendar extends AppCompatActivity implements View.OnClickList
 
         String query = "SELECT " + HoursContract.Hour.COLUMN_NAME_START_TIME + ", " + HoursContract.Hour.COLUMN_NAME_END_TIME + ", " + HoursContract.Hour.COLUMN_NAME_DAY + " FROM "
                 + HoursContract.Hour.TABLE_NAME;
+        db.beginTransaction();
         Cursor c = db.rawQuery(query, null);
 
         while (c.moveToNext()) {
@@ -127,6 +128,7 @@ public class EditCallendar extends AppCompatActivity implements View.OnClickList
 
             CreateAndAddLesson(this, sTime, eTime, day);
         }
+        db.endTransaction();
     }
 
     public void CreateAndAddLesson(EditCallendar ctx, String fromTime, String toTime, String day) {
@@ -180,12 +182,16 @@ public class EditCallendar extends AppCompatActivity implements View.OnClickList
 
                         HoursDbHelper mDbHelper = new HoursDbHelper(getApplicationContext());
                         SQLiteDatabase db = mDbHelper.getWritableDatabase();
+
+                        db.beginTransaction();
                         ContentValues values = new ContentValues();
                         values.put(HoursContract.Hour.COLUMN_NAME_START_TIME, fromTimeHour + ":" + fromTimeMinute);
                         values.put(HoursContract.Hour.COLUMN_NAME_END_TIME, selectedHour + ":" + selectedMinute);
                         values.put(HoursContract.Hour.COLUMN_NAME_DAY, day);
 
                         long newRowId = db.insert(HoursContract.Hour.TABLE_NAME, null, values);
+                        db.setTransactionSuccessful();
+                        db.endTransaction();
 
                         CreateAndAddLesson(ctx, fromTimeHour + ":" + fromTimeMinute, selectedHour + ":" + selectedMinute, day);
 
