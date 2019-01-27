@@ -123,6 +123,7 @@ public class GPSCheckService extends Service {
                     boolean shouldBeSilenced = false;
                     HoursDbHelper mDbHelper = new HoursDbHelper(getApplicationContext());
                     SQLiteDatabase db = mDbHelper.getReadableDatabase();
+                    db.beginTransaction();
 
                     Calendar calendar = Calendar.getInstance();
                     //calendar.set(2019, Calendar.JANUARY, 29);
@@ -131,7 +132,7 @@ public class GPSCheckService extends Service {
                     if (currentDay >= Calendar.MONDAY && currentDay <= Calendar.FRIDAY) {
                         String query = "SELECT " + HoursContract.Hour.COLUMN_NAME_START_TIME + ", " + HoursContract.Hour.COLUMN_NAME_END_TIME + " FROM " + HoursContract.Hour.TABLE_NAME +
                                 " WHERE " + HoursContract.Hour.COLUMN_NAME_DAY + " = '" + Day.GetDayByNumber(currentDay).Name + "'";
-                        db.beginTransaction();
+
                         Cursor c = db.rawQuery(query, null);
 
                         while (c.moveToNext())
