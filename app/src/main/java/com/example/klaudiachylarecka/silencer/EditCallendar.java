@@ -4,11 +4,13 @@ import android.app.TimePickerDialog;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 import android.support.design.widget.CoordinatorLayout;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.Gravity;
@@ -36,26 +38,19 @@ public class EditCallendar extends AppCompatActivity implements View.OnClickList
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        EditCallendar.this.setTitle("Zedytuj kalendarz");
+
         setContentView(R.layout.activity_edit_callendar);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-       Button back = (Button) findViewById(R.id.button2);
+        FloatingActionButton back = (FloatingActionButton) findViewById(R.id.fab);
 
         back.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Intent intent = new Intent(EditCallendar.this, MainActivity.class);
                 EditCallendar.this.startActivity(intent);
-            }
-        });
-
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
             }
         });
 
@@ -88,15 +83,23 @@ public class EditCallendar extends AppCompatActivity implements View.OnClickList
                 TextView textView = new TextView(this);
                 textView.setText(day.Name);
                 textView.setLayoutParams(param);
-                textView.setGravity(Gravity.LEFT | Gravity.BOTTOM);
+                textView.setGravity(Gravity.CENTER_VERTICAL);
+                textView.setLayoutParams(new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        1
+                ));
+                textView.setTextSize(30);
 
                 FloatingActionButton button = new FloatingActionButton(this);
                 button.setTag(day.Name);
                 button.setLayoutParams(param);
                 button.setOnClickListener(this);
+                button.setImageDrawable(ContextCompat.getDrawable(this, android.R.drawable.ic_menu_add));
 
                 child1.addView(textView);
                 child1.addView(button);
+                child1.setGravity(Gravity.RIGHT);
 
                 parent.addView(child1);
                 parent.addView(child2);
@@ -104,6 +107,55 @@ public class EditCallendar extends AppCompatActivity implements View.OnClickList
             }
 
         }
+
+        LoadLessonsFromDatabase();
+    }
+
+    public void LoadLessonsFromDatabase() {
+
+        HoursDbHelper mDbHelper = new HoursDbHelper(getApplicationContext());
+        SQLiteDatabase db = mDbHelper.getReadableDatabase();
+
+        String query = "SELECT " + HoursContract.Hour.COLUMN_NAME_START_TIME + ", " + HoursContract.Hour.COLUMN_NAME_END_TIME + ", " + HoursContract.Hour.COLUMN_NAME_DAY + " FROM "
+                + HoursContract.Hour.TABLE_NAME;
+        Cursor c = db.rawQuery(query, null);
+
+        while (c.moveToNext()) {
+            String sTime = c.getString(c.getColumnIndex(HoursContract.Hour.COLUMN_NAME_START_TIME));
+            String eTime = c.getString(c.getColumnIndex(HoursContract.Hour.COLUMN_NAME_END_TIME));
+            String day = c.getString(c.getColumnIndex(HoursContract.Hour.COLUMN_NAME_DAY));
+
+            CreateAndAddLesson(this, sTime, eTime, day);
+        }
+    }
+
+    public void CreateAndAddLesson(EditCallendar ctx, String fromTime, String toTime, String day) {
+        TextView label1 = new TextView(ctx);
+        label1.setText("Od:");
+        TextView label2 = new TextView(ctx);
+        label2.setText("Do:");
+        TextView timeFrom = new TextView(ctx);
+        timeFrom.setText(fromTime);
+
+        TextView timeTo = new TextView(ctx);
+        timeTo.setText(toTime);
+
+        LinearLayout container = new LinearLayout(ctx);
+        container.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        container.setOrientation(LinearLayout.HORIZONTAL);
+
+        container.addView(label1);
+        container.addView(timeFrom);
+
+        TextView spaces = new TextView(ctx);
+        spaces.setText("   ");
+        container.addView(spaces);
+
+        container.addView(label2);
+        container.addView(timeTo);
+
+        LinearLayout master = _containers.get(day);
+        master.addView(container);
     }
 
     @Override
@@ -126,32 +178,6 @@ public class EditCallendar extends AppCompatActivity implements View.OnClickList
                     @Override
                     public void onTimeSet(TimePicker timePicker, int selectedHour, int selectedMinute) {
 
-                        TextView label1 = new TextView(ctx);
-                        label1.setText("Od:");
-                        TextView label2 = new TextView(ctx);
-                        label2.setText("Do:");
-                        TextView timeFrom = new TextView(ctx);
-                        timeFrom.setText(fromTimeHour + ":" + fromTimeMinute);
-
-                        TextView timeTo = new TextView(ctx);
-                        timeTo.setText(selectedHour + ":" + selectedMinute);
-
-                        LinearLayout container = new LinearLayout(ctx);
-                        container.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-                        container.setOrientation(LinearLayout.HORIZONTAL);
-
-                        container.addView(label1);
-                        container.addView(timeFrom);
-
-                        TextView spaces = new TextView(ctx);
-                        spaces.setText("   ");
-                        container.addView(spaces);
-
-                        container.addView(label2);
-                        container.addView(timeTo);
-
-                        Lesson lesson = new Lesson(fromTimeHour, fromTimeMinute, selectedHour, selectedMinute, day);
-
                         HoursDbHelper mDbHelper = new HoursDbHelper(getApplicationContext());
                         SQLiteDatabase db = mDbHelper.getWritableDatabase();
                         ContentValues values = new ContentValues();
@@ -161,8 +187,8 @@ public class EditCallendar extends AppCompatActivity implements View.OnClickList
 
                         long newRowId = db.insert(HoursContract.Hour.TABLE_NAME, null, values);
 
-                        LinearLayout master = _containers.get(day);
-                        master.addView(container);
+                        CreateAndAddLesson(ctx, fromTimeHour + ":" + fromTimeMinute, selectedHour + ":" + selectedMinute, day);
+
                     }
                 }, hour, minute, true);
                 dialog2.setTitle("Do:");

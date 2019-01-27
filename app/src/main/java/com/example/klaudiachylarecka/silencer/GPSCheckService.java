@@ -7,12 +7,17 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.location.Location;
 import android.location.LocationManager;
+import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.util.Log;
 
+import java.text.ParsePosition;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -22,10 +27,31 @@ public class GPSCheckService extends Service {
     private LocationManager mLocationManager = null;
     private static final int LOCATION_INTERVAL = 1000;
     private static final float LOCATION_DISTANCE = 10f;
+    private static final double TARGET_LAT = 51.109110;
+    private static final double TARGET_LON = 17.060524;
+    private static final float RANGE = 200;
+
 
     private class LocationListener implements android.location.LocationListener
     {
         Location mLastLocation;
+
+        public boolean CheckIfInRange() {
+            Log.i(TAG, "Checking location, current is: " + mLastLocation != null ? mLastLocation.toString() : "NULL");
+
+            if (mLastLocation != null) {
+                float[] dist = new float[1];
+                Location.distanceBetween(mLastLocation.getLatitude(), mLastLocation.getLongitude(), GPSCheckService.TARGET_LAT, GPSCheckService.TARGET_LON, dist);
+
+
+                if (dist[0] <= RANGE )
+                {
+                    Log.i(TAG, "In range!");
+                    return true;
+                }
+            }
+            return false;
+        }
 
         public LocationListener(String provider)
         {
@@ -64,7 +90,29 @@ public class GPSCheckService extends Service {
 
     private class LocationCheckTask extends TimerTask {
 
+        public  LocationCheckTask(LocationListener[] locationListeners)
+        {
+            mLocationListeners = locationListeners;
+            am = (AudioManager) getBaseContext().getSystemService(Context.AUDIO_SERVICE);
+        }
+
+        AudioManager am;
+
+        private LocationListener[] mLocationListeners;
+
         private boolean isSilenced = false;
+
+        private void Silence() {
+            if (am != null) {
+                am.setRingerMode(AudioManager.RINGER_MODE_VIBRATE);
+            }
+        }
+
+        private void UnSilence() {
+            if (am != null) {
+                am.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
+            }
+        }
 
         @Override
         public void run() {
@@ -91,15 +139,50 @@ public class GPSCheckService extends Service {
                             String sTime = c.getString(c.getColumnIndex(HoursContract.Hour.COLUMN_NAME_START_TIME));
                             String eTime = c.getString(c.getColumnIndex(HoursContract.Hour.COLUMN_NAME_END_TIME));
 
+                            Date sTimeDate = new SimpleDateFormat("HH:mm").parse(sTime, new ParsePosition(0));
+                            Calendar sTimeCalendar = Calendar.getInstance();
+                            sTimeCalendar.set(calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DATE), sTimeDate.getHours(), sTimeDate.getMinutes());
+
+                            Date eTimeDate = new SimpleDateFormat("HH:mm").parse(eTime, new ParsePosition(0));
+                            Calendar eTimeCalendar = Calendar.getInstance();
+                            eTimeCalendar.set(calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DATE), eTimeDate.getHours(), eTimeDate.getMinutes());
+
+                            Date currentTime = calendar.getTime();
                             Log.i(TAG, "Found lesson: Day: " + Day.GetDayByNumber(currentDay).Name + ", StartTime: " + sTime + ", EndTime: " + eTime);
+
+                            Date sDebug = sTimeCalendar.getTime();
+                            Date eDebug = eTimeCalendar.getTime();
+
+                            if (currentTime.after(sTimeCalendar.getTime()) && currentTime.before(eTimeCalendar.getTime())) {
+                                Log.i(TAG, "Currently during lesson.");
+
+                                for (LocationListener listener : mLocationListeners) {
+                                    if (listener.CheckIfInRange())
+                                    {
+                                        Log.i(TAG, "In range, silence.");
+                                        shouldBeSilenced = true;
+                                    }
+                                }
+                            }
                     }
+                    }
+
+                    if (shouldBeSilenced && !isSilenced)
+                    {
+                        Silence();
+                        isSilenced = true;
+                    }
+
+                    if (!shouldBeSilenced && isSilenced)
+                    {
+                        UnSilence();
                     }
                 }
             });
         }
     }
 
-    LocationListener[] mLocationListeners = new LocationListener[] {
+    public LocationListener[] mLocationListeners = new LocationListener[] {
             new LocationListener(LocationManager.GPS_PROVIDER),
             new LocationListener(LocationManager.NETWORK_PROVIDER)
     };
@@ -149,7 +232,7 @@ public class GPSCheckService extends Service {
             mTimer = new Timer();
         }
 
-        mTimer.scheduleAtFixedRate(new LocationCheckTask(), 0, 1000);
+        mTimer.scheduleAtFixedRate(new LocationCheckTask(mLocationListeners), 0, 1000);
     }
 
     @Override
